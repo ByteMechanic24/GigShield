@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ml_service:
+        condition: service_started
+
+  worker:
+    build: ./backend
+    command: ["node", "workers/softHoldPoller.js"]
+    env_file:
+      - ./backend/.env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  seed:
+    build: ./backend
+    command: ["node", "seedData.js"]
+    env_file:
+      - ./backend/.env
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  ml_service:
+    build: ./ml_service
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+
+  mock_apis:
+    build: ./mock_apis
+    ports:
+      - "8002:8002"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  admin_frontend:
+    build: ./admin_frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

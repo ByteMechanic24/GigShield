@@ -1,0 +1,113 @@
+services:
+  - type: web
+    name: gigshield-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8000
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: gigshield_dev
+      - key: REDIS_URL
+        sync: false
+      - key: ML_SERVICE_URL
+        sync: false
+      - key: PLATFORM_API_URL
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: GOOGLE_WEATHER_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: ENABLE_SEED
+        value: false
+      - key: ALLOW_PRODUCTION_SEED
+        value: false
+
+  - type: worker
+    name: gigshield-soft-hold-worker
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm run worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: gigshield_dev
+      - key: REDIS_URL
+        sync: false
+      - key: ML_SERVICE_URL
+        sync: false
+      - key: PLATFORM_API_URL
+        sync: false
+      - key: GOOGLE_WEATHER_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: ENABLE_SEED
+        value: false
+      - key: ALLOW_PRODUCTION_SEED
+        value: false
+
+  - type: web
+    name: gigshield-ml-service
+    env: python
+    rootDir: ml_service
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 8001
+
+  - type: web
+    name: gigshield-mock-apis
+    env: node
+    rootDir: mock_apis
+    buildCommand: npm install
+    startCommand: node app.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8002
+
+  - type: static
+    name: gigshield-worker-app
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: static
+    name: gigshield-admin-app
+    rootDir: admin_frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
