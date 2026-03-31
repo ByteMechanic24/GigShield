@@ -250,6 +250,32 @@ function toAdminPhotoSummary(photos = []) {
   }));
 }
 
+function toWorkerClaimSummary(claim) {
+  const baseClaim = claim?.toObject ? claim.toObject() : claim;
+  const photos = Array.isArray(baseClaim.photos) ? baseClaim.photos : [];
+  const checkResults = Array.isArray(baseClaim.checkResults) ? baseClaim.checkResults : [];
+
+  return {
+    ...baseClaim,
+    photos: photos.map((photo) => ({
+      name: photo.name || 'incident-photo',
+      mimeType: photo.mimeType || 'image/jpeg',
+      sizeBytes: photo.sizeBytes || 0,
+      capturedAt: photo.capturedAt || null,
+    })),
+    photoCount: photos.length,
+    checkResults: checkResults.map((result) => ({
+      checkName: result.checkName,
+      weight: result.weight,
+      score: result.score,
+      confidence: result.confidence || 'NONE',
+      hardReject: Boolean(result.hardReject),
+      flags: Array.isArray(result.flags) ? result.flags : [],
+      completedAt: result.completedAt || null,
+    })),
+  };
+}
+
 async function attachAdminClaimDetails(claim, { includeEvidence = false } = {}) {
   const baseClaim = claim.toObject ? claim.toObject() : claim;
 
@@ -530,8 +556,13 @@ router.get('/', requireWorker, async (req, res) => {
 
     const cacheKey = buildCacheKey('claims:worker', { workerId, limit, skip });
     const { value: claims, cacheHit } = await getOrSetJson(cacheKey, 45, async () => {
-      const result = await Claim.find({ workerId }).sort({ submittedAt: -1 }).skip(skip).limit(limit).lean();
-      return result;
+      const result = await Claim.find({ workerId })
+        .sort({ submittedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      return result.map((claim) => toWorkerClaimSummary(claim));
     });
 
     res.set('X-Cache', cacheHit ? 'HIT' : 'MISS');
