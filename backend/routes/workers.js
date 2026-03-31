@@ -13,6 +13,13 @@ const {
   verifyWorkerIdentity,
 } = require('../services/auth');
 const { requireWorker } = require('../middleware/auth');
+const {
+  buildCacheKey,
+  getOrSetJson,
+  deleteByPatterns,
+  workerPolicyPattern,
+  workerSessionPattern,
+} = require('../services/cache');
 
 const router = express.Router();
 
@@ -212,6 +219,10 @@ router.post('/register', requireWorker, async (req, res) => {
     worker.onboardingCompleted = true;
     worker.updatedAt = new Date();
     await worker.save();
+    await deleteByPatterns([
+      workerPolicyPattern(worker._id),
+      workerSessionPattern(worker._id),
+    ]);
 
     await AuditLog.create({
       actorType: 'worker',
@@ -279,17 +290,29 @@ router.post('/sign-in', async (req, res) => {
  */
 router.get('/session', requireWorker, async (req, res) => {
   try {
-    const worker = await Worker.findById(req.workerId).exec();
-    if (!worker) {
+    const cacheKey = buildCacheKey('worker:session', { workerId: req.workerId });
+    const { value, cacheHit } = await getOrSetJson(cacheKey, 45, async () => {
+      const worker = await Worker.findById(req.workerId).exec();
+      if (!worker) {
+        return null;
+      }
+
+      const resolvedPolicy = await reconcileActivePolicies(worker);
+      await worker.populate('activePolicyId');
+
+      return {
+        worker,
+        policy: resolvedPolicy || worker.activePolicyId || null,
+      };
+    });
+
+    if (!value?.worker) {
       return res.status(404).json({ error: 'Worker Missing' });
     }
 
-    const resolvedPolicy = await reconcileActivePolicies(worker);
-    await worker.populate('activePolicyId');
-
+    res.set('X-Cache', cacheHit ? 'HIT' : 'MISS');
     return res.json({
-      worker,
-      policy: resolvedPolicy || worker.activePolicyId || null,
+      ...value,
       session: {
         sessionId: req.authSession?._id || null,
         expiresAt: req.authSession?.expiresAt || null,

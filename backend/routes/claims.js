@@ -19,6 +19,13 @@ const { haversine } = require('../verification/gpsCheck');
 const { calculatePayout, estimateStrandedHours } = require('../scoring/payout');
 const redisClient = require('../db/redisClient'); // Assuming this exports { redis, getJson }
 const { requireAdmin, requireWorker } = require('../middleware/auth');
+const {
+  adminClaimsPattern,
+  buildCacheKey,
+  deleteByPatterns,
+  getOrSetJson,
+  workerClaimsPattern,
+} = require('../services/cache');
 
 const router = express.Router();
 
@@ -496,6 +503,11 @@ router.post('/', requireWorker, async (req, res) => {
       ipAddress: req.ip,
     });
 
+    await deleteByPatterns([
+      workerClaimsPattern(worker._id),
+      adminClaimsPattern(),
+    ]);
+
     // 13. Resolution
     return res.json(claim);
 
@@ -515,9 +527,14 @@ router.get('/', requireWorker, async (req, res) => {
     
     const limit = parseInt(req.query.limit) || 10;
     const skip = parseInt(req.query.skip) || 0;
-    
-    // Index mapping applies { workerId: 1, submittedAt: -1 } making this extremely fast implicitly
-    const claims = await Claim.find({ workerId }).sort({ submittedAt: -1 }).skip(skip).limit(limit);
+
+    const cacheKey = buildCacheKey('claims:worker', { workerId, limit, skip });
+    const { value: claims, cacheHit } = await getOrSetJson(cacheKey, 45, async () => {
+      const result = await Claim.find({ workerId }).sort({ submittedAt: -1 }).skip(skip).limit(limit).lean();
+      return result;
+    });
+
+    res.set('X-Cache', cacheHit ? 'HIT' : 'MISS');
     res.json(claims);
   } catch(e) {
     res.status(500).json({ error: "Resolution Error" });
@@ -531,30 +548,44 @@ router.get('/', requireWorker, async (req, res) => {
 router.get('/admin/all', requireAdmin, async (req, res) => {
   try {
     const { decision, dateFrom, dateTo, limit, skip } = req.query;
-    let query = {};
-    
-    if (decision) {
-      query.decision = decision;
-    }
-    
-    if (dateFrom || dateTo) {
-      query.submittedAt = {};
-      if (dateFrom) query.submittedAt.$gte = new Date(dateFrom);
-      if (dateTo) query.submittedAt.$lte = new Date(dateTo);
-    }
-    
-    const claims = await Claim.find(query)
-      .sort({ submittedAt: -1 })
-      .skip(parseInt(skip) || 0)
-      .limit(parseInt(limit) || 10);
+    const parsedSkip = parseInt(skip) || 0;
+    const parsedLimit = parseInt(limit) || 10;
+    const cacheKey = buildCacheKey('claims:admin', {
+      decision: decision || null,
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+      limit: parsedLimit,
+      skip: parsedSkip,
+    });
 
-    const detailedClaims = await Promise.all(
-      claims.map((claim) =>
-        attachAdminClaimDetails(claim, {
-          includeEvidence: ['SOFT_HOLD', 'MANUAL_REVIEW'].includes(claim.decision),
-        })
-      )
-    );
+    const { value: detailedClaims, cacheHit } = await getOrSetJson(cacheKey, 30, async () => {
+      let query = {};
+
+      if (decision) {
+        query.decision = decision;
+      }
+
+      if (dateFrom || dateTo) {
+        query.submittedAt = {};
+        if (dateFrom) query.submittedAt.$gte = new Date(dateFrom);
+        if (dateTo) query.submittedAt.$lte = new Date(dateTo);
+      }
+
+      const claims = await Claim.find(query)
+        .sort({ submittedAt: -1 })
+        .skip(parsedSkip)
+        .limit(parsedLimit);
+
+      return Promise.all(
+        claims.map((claim) =>
+          attachAdminClaimDetails(claim, {
+            includeEvidence: ['SOFT_HOLD', 'MANUAL_REVIEW'].includes(claim.decision),
+          })
+        )
+      );
+    });
+
+    res.set('X-Cache', cacheHit ? 'HIT' : 'MISS');
     res.json(detailedClaims);
   } catch (err) {
     res.status(500).json({ error: "Enterprise Dashboard Rendering Query Failed" });
@@ -635,6 +666,11 @@ router.put('/:claimId/review', requireAdmin, async (req, res) => {
       },
       ipAddress: req.ip,
     });
+
+    await deleteByPatterns([
+      workerClaimsPattern(claim.workerId),
+      adminClaimsPattern(),
+    ]);
     
     res.json(claim);
   } catch(e) {

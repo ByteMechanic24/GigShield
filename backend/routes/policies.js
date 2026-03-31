@@ -4,6 +4,12 @@ const Policy = require('../models/Policy');
 const Worker = require('../models/Worker');
 const AuditLog = require('../models/AuditLog');
 const { requireWorker } = require('../middleware/auth');
+const {
+  buildCacheKey,
+  deleteByPatterns,
+  getOrSetJson,
+  workerPolicyPattern,
+} = require('../services/cache');
 
 const router = express.Router();
 
@@ -57,6 +63,7 @@ router.post('/renew', requireWorker, async (req, res) => {
     // Map backwards implicitly replacing the worker doc linkage strictly securing state bounds efficiently
     worker.activePolicyId = policy._id;
     await worker.save();
+    await deleteByPatterns([workerPolicyPattern(worker._id)]);
     await AuditLog.create({
       actorType: 'worker',
       actorId: worker._id,
@@ -91,15 +98,23 @@ router.get('/', requireWorker, async (req, res) => {
 router.get('/current', requireWorker, async (req, res) => {
   try {
     const now = new Date();
-    const activePolicy = await Policy.findOne({
+    const cacheKey = buildCacheKey('policy:current', {
       workerId: req.workerId,
-      status: "active",
-      weekStart: { $lte: now },
-      weekEnd: { $gte: now }
+      isoMinute: now.toISOString().slice(0, 16),
+    });
+    const { value: activePolicy, cacheHit } = await getOrSetJson(cacheKey, 60, async () => {
+      const result = await Policy.findOne({
+        workerId: req.workerId,
+        status: "active",
+        weekStart: { $lte: now },
+        weekEnd: { $gte: now }
+      }).lean();
+      return result;
     });
 
     if (!activePolicy) return res.status(404).json({ error: "No currently bounded active policy mapped." });
-    
+
+    res.set('X-Cache', cacheHit ? 'HIT' : 'MISS');
     res.json(activePolicy);
   } catch(e) {
     res.status(500).json({ error: "Failure extracting current constraints" });
