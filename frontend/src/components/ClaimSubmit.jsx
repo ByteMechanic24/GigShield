@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Camera, CheckCircle2, Crosshair, MapPinned, Radar, Sparkles } from 'lucide-react';
 import useDeepLink from '../hooks/useDeepLink';
 import useLocation from '../hooks/useLocation';
+import { compressImageFile } from '../utils/imageCompression';
 import { generateDemoOrder, submitClaim } from '../utils/api';
 import { formatDecision, formatDisruption, formatPlatform, formatRupees } from '../utils/formatting';
 
@@ -27,6 +28,7 @@ export default function ClaimSubmit() {
   const [demoToast, setDemoToast] = useState('');
   const [latestDemoOrderId, setLatestDemoOrderId] = useState('');
   const [photos, setPhotos] = useState([]);
+  const [compressingPhotos, setCompressingPhotos] = useState(false);
 
   const showDemoToast = (message) => {
     setDemoToast(message);
@@ -156,27 +158,17 @@ export default function ClaimSubmit() {
       return;
     }
 
-    const nextPhotos = await Promise.all(
-      incomingFiles.map(
-        (file) =>
-          new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () =>
-              resolve({
-                name: file.name,
-                mimeType: file.type || 'image/jpeg',
-                sizeBytes: file.size,
-                capturedAt: new Date().toISOString(),
-                dataUrl: reader.result,
-              });
-            reader.onerror = () => reject(new Error(`Unable to read ${file.name}`));
-            reader.readAsDataURL(file);
-          })
-      )
-    );
+    setCompressingPhotos(true);
 
-    setPhotos((current) => [...current, ...nextPhotos]);
-    event.target.value = '';
+    try {
+      const nextPhotos = await Promise.all(incomingFiles.map((file) => compressImageFile(file)));
+      setPhotos((current) => [...current, ...nextPhotos]);
+    } catch (photoError) {
+      setError(photoError.message || 'Unable to process one or more selected photos.');
+    } finally {
+      setCompressingPhotos(false);
+      event.target.value = '';
+    }
   };
 
   const removePhoto = (indexToRemove) => {
@@ -316,8 +308,13 @@ export default function ClaimSubmit() {
               onChange={handlePhotoChange}
             />
             <span className="helper-copy">
-              Add as many photos as you want. These help human reviewers validate the incident if your claim goes into the decision pipeline.
+              Add as many photos as you want. Images are compressed before upload so claims submit more reliably on phones and slower networks.
             </span>
+            {compressingPhotos ? (
+              <span className="helper-copy" style={{ marginTop: 8, display: 'block' }}>
+                Compressing selected photos...
+              </span>
+            ) : null}
             {photos.length ? (
               <div className="photo-grid" style={{ marginTop: 14 }}>
                 {photos.map((photo, index) => (
@@ -325,7 +322,12 @@ export default function ClaimSubmit() {
                     <img src={photo.dataUrl} alt={photo.name} className="photo-card__image" />
                     <div className="photo-card__meta">
                       <strong>{photo.name}</strong>
-                      <span>{Math.max(1, Math.round((photo.sizeBytes || 0) / 1024))} KB</span>
+                      <span>
+                        {Math.max(1, Math.round((photo.sizeBytes || 0) / 1024))} KB
+                        {photo.originalSizeBytes && photo.originalSizeBytes > photo.sizeBytes
+                          ? ` from ${Math.max(1, Math.round(photo.originalSizeBytes / 1024))} KB`
+                          : ''}
+                      </span>
                     </div>
                     <button type="button" className="button button--ghost" onClick={() => removePhoto(index)}>
                       Remove
@@ -381,8 +383,8 @@ export default function ClaimSubmit() {
         </div>
 
         <div className="inline-actions" style={{ gridTemplateColumns: '1fr', marginTop: 28 }}>
-          <button type="button" className="button button--primary" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Submitting claim...' : 'Submit claim'}
+          <button type="button" className="button button--primary" onClick={handleSubmit} disabled={submitting || compressingPhotos}>
+            {compressingPhotos ? 'Preparing photos...' : submitting ? 'Submitting claim...' : 'Submit claim'}
           </button>
         </div>
       </section>
