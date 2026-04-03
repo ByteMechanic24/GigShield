@@ -1,25 +1,40 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, BadgeIndianRupee, Camera, FlaskConical, MapPinned, RefreshCw } from 'lucide-react';
-import { fetchAdminStats, reviewClaim, testVerification } from '../utils/api';
-import { formatDate, formatDecision, formatRupees } from '../utils/formatting';
+import { Activity, AlertTriangle, BadgeIndianRupee, Camera, MapPinned, RefreshCw, ShieldCheck, Waves } from 'lucide-react';
+import { fetchAdminStats, reviewClaim } from '../utils/api';
+import { formatDate, formatDecision, formatDisruption, formatPlatform, formatRupees } from '../utils/formatting';
 
 export default function AdminDashboard() {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [testDisruption, setTestDisruption] = useState('flooding');
-  const [testPlatform, setTestPlatform] = useState('zomato');
-  const [testResult, setTestResult] = useState(null);
-  const [isTesting, setIsTesting] = useState(false);
   const [reviewingClaimId, setReviewingClaimId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const formatScore = (value) => (typeof value === 'number' ? value.toFixed(2) : 'N/A');
+
+  const getReviewPhotos = (claim) => {
+    if (Array.isArray(claim?.evidence?.photos) && claim.evidence.photos.length) {
+      return claim.evidence.photos;
+    }
+
+    if (Array.isArray(claim?.photos) && claim.photos.length) {
+      return claim.photos;
+    }
+
+    return [];
+  };
+
+  const getEnvironmentSnapshot = (claim) =>
+    claim?.evidence?.environmentSnapshot ||
+    claim?.checks?.find?.((check) => check.checkName === 'environmental')?.data ||
+    null;
 
   const loadData = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
       setRefreshing(true);
     }
     try {
-      const response = await fetchAdminStats({ limit: 200 });
+      const response = await fetchAdminStats({ limit: 80 });
       const normalizedClaims = Array.isArray(response)
         ? response
         : Array.isArray(response?.value)
@@ -66,27 +81,39 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSimulate = async () => {
-    setIsTesting(true);
-    setTestResult(null);
+  const renderCheckCard = (check) => {
+    const scorePercent = typeof check?.score === 'number' ? Math.max(0, Math.min(100, check.score * 100)) : 0;
 
-    try {
-      const response = await testVerification({
-        orderId: `DEMO-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-        platform: testPlatform,
-        disruptionType: testDisruption,
-        gps: { lat: 19.11, lng: 72.86 },
-        claimTimestamp: new Date().toISOString(),
-        workerId: 'mock-worker',
-        claimRef: 'DEMO-REF',
-      });
+    return (
+      <div key={check._id || check.checkName} className="metric-card review-check">
+        <div className="history-item__row">
+          <div>
+            <p className="metric-card__label">{String(check.checkName || 'check').replaceAll('_', ' ')}</p>
+            <div className="metric-card__value" style={{ fontSize: '1.2rem' }}>
+              {formatScore(check.score)}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <strong style={{ display: 'block' }}>{check.weight ?? 'N/A'}</strong>
+            <span className="helper-copy">Weight</span>
+          </div>
+        </div>
 
-      setTestResult(response);
-    } catch (error) {
-      setTestResult({ error: error.message });
-    } finally {
-      setIsTesting(false);
-    }
+        <div className="scorebar" style={{ marginTop: 10 }}>
+          <div className="scorebar__fill" style={{ width: `${scorePercent}%` }} />
+        </div>
+
+        <div className="pill-row" style={{ marginTop: 12 }}>
+          <span className="status-chip status-chip--muted">{check.confidence || 'NONE'} confidence</span>
+          {check.hardReject ? <span className="status-chip status-chip--muted">Hard reject signal</span> : null}
+          {(check.flags || []).slice(0, 3).map((flag) => (
+            <span key={`${check.checkName}-${flag}`} className="status-chip status-chip--muted">
+              {flag}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -106,7 +133,7 @@ export default function AdminDashboard() {
             <h2 className="page-title" style={{ fontSize: '2.2rem' }}>
               Claims command center
             </h2>
-            <p className="card-copy">Monitor the queue, release manual decisions, and test the verification pipeline.</p>
+            <p className="card-copy">Review manual cases, inspect proof signals, and release decisions from one workspace.</p>
           </div>
           <button type="button" className="button button--ghost" onClick={() => loadData()}>
             <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
@@ -148,7 +175,7 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <div className="ops-grid">
+      <div className="page-stack">
         <section className="panel-card">
           <div className="section-heading">
             <div>
@@ -156,6 +183,7 @@ export default function AdminDashboard() {
               <h3 className="page-title" style={{ fontSize: '1.9rem' }}>
                 Claims needing action
               </h3>
+              <p className="card-copy">Open each case as a guided review instead of raw payload output.</p>
             </div>
           </div>
 
@@ -167,19 +195,25 @@ export default function AdminDashboard() {
             <div className="ops-list" style={{ marginTop: 20 }}>
               {attentionQueue.map((claim) => {
                 const decision = formatDecision(claim.decision);
+                const photos = getReviewPhotos(claim);
+                const environmentSnapshot = getEnvironmentSnapshot(claim);
 
                 return (
                   <div key={claim._id} className="ops-item">
                     <div className="history-item__row">
                       <div>
-                        <div className={`decision-chip decision-chip--${decision.tone}`}>{decision.label}</div>
-                        <h4 style={{ margin: '10px 0 6px', fontSize: '1.08rem' }}>{claim.claimRef || claim.orderId}</h4>
-                        <p className="helper-copy">{formatDate(claim.submittedAt)}</p>
+                        <div className="pill-row">
+                          <div className={`decision-chip decision-chip--${decision.tone}`}>{decision.label}</div>
+                          <span className={`platform-chip platform-chip--${claim.platform}`}>{formatPlatform(claim.platform)}</span>
+                          <span className="status-chip status-chip--muted">{formatDisruption(claim.disruptionType)}</span>
+                        </div>
+                        <h4 style={{ margin: '12px 0 6px', fontSize: '1.14rem' }}>{claim.claimRef || claim.orderId}</h4>
+                        <p className="helper-copy">
+                          Order {claim.orderId} · worker {String(claim.workerId || '').slice(-6) || 'unknown'} · {formatDate(claim.submittedAt)}
+                        </p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <strong style={{ display: 'block' }}>
-                          {typeof claim.compositeScore === 'number' ? claim.compositeScore.toFixed(2) : 'N/A'}
-                        </strong>
+                        <strong style={{ display: 'block', fontSize: '1.05rem' }}>{formatScore(claim.compositeScore)}</strong>
                         <span className="helper-copy">Composite score</span>
                       </div>
                     </div>
@@ -204,14 +238,9 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="history-item__detail">
-                      <div className="pill-row">
-                        <span className={`platform-chip platform-chip--${claim.platform}`}>{claim.platform}</span>
-                        <span className="status-chip status-chip--muted">{claim.disruptionType}</span>
-                        <span className="status-chip status-chip--muted">Order {claim.orderId}</span>
-                      </div>
 
-                      <div className="detail-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-                        <div className="metric-card">
+                      <div className="detail-grid review-summary-grid">
+                        <div className="metric-card review-summary-card">
                           <p className="metric-card__label">
                             <MapPinned size={14} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
                             Claim location
@@ -223,33 +252,62 @@ export default function AdminDashboard() {
                             Accuracy {claim.gps?.accuracy_metres || 'N/A'}m · network {claim.gps?.network_accuracy_metres || 'N/A'}m
                           </p>
                         </div>
-                        <div className="metric-card">
-                          <p className="metric-card__label">Evidence summary</p>
+                        <div className="metric-card review-summary-card">
+                          <p className="metric-card__label">
+                            <Camera size={14} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+                            Evidence summary
+                          </p>
                           <div className="metric-card__value" style={{ fontSize: '1.05rem' }}>
-                            {claim.evidence?.photos?.length || claim.photos?.length || 0} photos
+                            {photos.length} photos
                           </div>
                           <p className="metric-card__caption">
-                            Weather score {claim.checks?.find?.((check) => check.checkName === 'environmental')?.score?.toFixed?.(2) || 'N/A'}
+                            Review status {claim.reviewStatus || 'pending'} · payout {formatRupees(claim.payout?.total || 0)}
+                          </p>
+                        </div>
+                        <div className="metric-card review-summary-card">
+                          <p className="metric-card__label">
+                            <ShieldCheck size={14} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+                            Payout review
+                          </p>
+                          <div className="metric-card__value" style={{ fontSize: '1.05rem' }}>
+                            {formatRupees(claim.payout?.total || 0)}
+                          </div>
+                          <p className="metric-card__caption">
+                            {claim.payout?.strandedHours || 0} stranded hours · {claim.payoutStatus || 'pending'} payout state
+                          </p>
+                        </div>
+                        <div className="metric-card review-summary-card">
+                          <p className="metric-card__label">
+                            <Waves size={14} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+                            Environment snapshot
+                          </p>
+                          <div className="metric-card__value" style={{ fontSize: '1.05rem' }}>
+                            {environmentSnapshot?.provider || environmentSnapshot?.condition || 'Unavailable'}
+                          </div>
+                          <p className="metric-card__caption">
+                            Temp {environmentSnapshot?.temperatureC ?? 'N/A'}°C · alerts {environmentSnapshot?.alertsCount ?? 0}
                           </p>
                         </div>
                       </div>
 
                       {claim.checks?.length ? (
-                        <div className="mono-block" style={{ minHeight: 220 }}>
-                          {JSON.stringify(claim.checks, null, 2)}
+                        <div className="review-section">
+                          <p className="metric-card__label">Verification checks</p>
+                          <div className="detail-grid review-checks-grid">{claim.checks.map((check) => renderCheckCard(check))}</div>
                         </div>
                       ) : null}
 
-                      {(claim.evidence?.photos?.length || claim.photos?.length) ? (
-                        <div>
-                          <p className="metric-card__label">
-                            <Camera size={14} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
-                            Submitted photos
-                          </p>
+                      {photos.length ? (
+                        <div className="review-section">
+                          <p className="metric-card__label">Submitted photos</p>
                           <div className="photo-grid" style={{ marginTop: 12 }}>
-                            {(claim.evidence?.photos || claim.photos || []).map((photo, index) => (
+                            {photos.map((photo, index) => (
                               <div key={`${claim._id}-photo-${index}`} className="photo-card">
-                                <img src={photo.dataUrl} alt={photo.name || `Claim photo ${index + 1}`} className="photo-card__image" />
+                                {photo.dataUrl ? (
+                                  <img src={photo.dataUrl} alt={photo.name || `Claim photo ${index + 1}`} className="photo-card__image" />
+                                ) : (
+                                  <div className="photo-card__image review-photo-placeholder">Preview unavailable</div>
+                                )}
                                 <div className="photo-card__meta">
                                   <strong>{photo.name || `Photo ${index + 1}`}</strong>
                                   <span>{Math.max(1, Math.round((photo.sizeBytes || 0) / 1024))} KB</span>
@@ -269,52 +327,6 @@ export default function AdminDashboard() {
           )}
         </section>
 
-        <section className="panel-card">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Verification sandbox</p>
-              <h3 className="page-title" style={{ fontSize: '1.9rem' }}>
-                Simulate a claim
-              </h3>
-            </div>
-            <FlaskConical size={20} />
-          </div>
-
-          <div className="field" style={{ marginTop: 20 }}>
-            <label>Platform</label>
-            <div className="selection-grid selection-grid--two">
-              {['zomato', 'swiggy'].map((platform) => (
-                <button
-                  key={platform}
-                  type="button"
-                  className={`toggle-chip${testPlatform === platform ? ' toggle-chip--active' : ''}`}
-                  onClick={() => setTestPlatform(platform)}
-                >
-                  {platform}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="field" style={{ marginTop: 16 }}>
-            <label htmlFor="test-disruption">Disruption type</label>
-            <select id="test-disruption" value={testDisruption} onChange={(event) => setTestDisruption(event.target.value)}>
-              <option value="flooding">Flooding</option>
-              <option value="heat">Heatwave</option>
-              <option value="aqi">Poor AQI</option>
-              <option value="strike">Strike</option>
-              <option value="road_closure">Road closure</option>
-            </select>
-          </div>
-
-          <button type="button" className="button button--primary" style={{ marginTop: 20 }} onClick={handleSimulate} disabled={isTesting}>
-            {isTesting ? 'Running simulation...' : 'Run verification test'}
-          </button>
-
-          <div className="mono-block" style={{ marginTop: 20 }}>
-            {testResult ? JSON.stringify(testResult, null, 2) : 'Run a simulation to inspect the raw verification response.'}
-          </div>
-        </section>
       </div>
     </div>
   );

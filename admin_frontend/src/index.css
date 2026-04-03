@@ -824,6 +824,33 @@ textarea {
   font-size: 0.88rem;
 }
 
+.review-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.review-summary-card,
+.review-check {
+  padding: 18px;
+  box-shadow: none;
+}
+
+.review-section {
+  display: grid;
+  gap: 12px;
+}
+
+.review-checks-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.review-photo-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  border: 1px dashed rgba(23, 32, 51, 0.14);
+}
+
 .mono-block {
   border-radius: 20px;
   background: #102030;
@@ -1075,7 +1102,9 @@ textarea {
   .stats-grid,
   .form-grid,
   .selection-grid--two,
-  .result-grid {
+  .result-grid,
+  .review-summary-grid,
+  .review-checks-grid {
     grid-template-columns: 1fr;
   }
 

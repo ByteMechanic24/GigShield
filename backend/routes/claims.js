@@ -277,32 +277,43 @@ function toWorkerClaimSummary(claim) {
 }
 
 async function attachAdminClaimDetails(claim, { includeEvidence = false } = {}) {
-  const baseClaim = claim.toObject ? claim.toObject() : claim;
+  try {
+    const baseClaim = claim.toObject ? claim.toObject() : claim;
 
-  if (!includeEvidence) {
+    if (!includeEvidence) {
+      return {
+        ...baseClaim,
+        photos: Array.isArray(baseClaim.photos) ? baseClaim.photos.map((photo) => ({
+          name: photo.name || 'incident-photo',
+          mimeType: photo.mimeType || 'image/jpeg',
+          sizeBytes: photo.sizeBytes || 0,
+          capturedAt: photo.capturedAt || null,
+        })) : [],
+      };
+    }
+
+    const evidence = await ClaimEvidence.findOne({ claimId: claim._id }).lean();
+    const checks = await ClaimCheck.find({ claimId: claim._id }).lean();
+
     return {
       ...baseClaim,
-      photos: Array.isArray(baseClaim.photos) ? baseClaim.photos.map((photo) => ({
-        name: photo.name || 'incident-photo',
-        mimeType: photo.mimeType || 'image/jpeg',
-        sizeBytes: photo.sizeBytes || 0,
-        capturedAt: photo.capturedAt || null,
-      })) : [],
+      evidence: evidence ? {
+        ...evidence,
+        photos: toAdminPhotoSummary(evidence.photos),
+      } : null,
+      photos: toAdminPhotoSummary(baseClaim.photos),
+      checks,
+    };
+  } catch (error) {
+    const baseClaim = claim.toObject ? claim.toObject() : claim;
+    console.error('Admin claim detail attachment failed:', error.message);
+    return {
+      ...baseClaim,
+      evidence: null,
+      photos: toAdminPhotoSummary(baseClaim.photos),
+      checks: [],
     };
   }
-
-  const evidence = await ClaimEvidence.findOne({ claimId: claim._id }).lean();
-  const checks = await ClaimCheck.find({ claimId: claim._id }).lean();
-
-  return {
-    ...baseClaim,
-    evidence: evidence ? {
-      ...evidence,
-      photos: toAdminPhotoSummary(evidence.photos),
-    } : null,
-    photos: toAdminPhotoSummary(baseClaim.photos),
-    checks,
-  };
 }
 
 // --- Helpers ---
@@ -580,7 +591,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
   try {
     const { decision, dateFrom, dateTo, limit, skip } = req.query;
     const parsedSkip = parseInt(skip) || 0;
-    const parsedLimit = parseInt(limit) || 10;
+    const parsedLimit = Math.min(parseInt(limit) || 50, 100);
     const cacheKey = buildCacheKey('claims:admin', {
       decision: decision || null,
       dateFrom: dateFrom || null,
@@ -607,18 +618,23 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         .skip(parsedSkip)
         .limit(parsedLimit);
 
-      return Promise.all(
+      const enrichedClaims = await Promise.allSettled(
         claims.map((claim) =>
           attachAdminClaimDetails(claim, {
             includeEvidence: ['SOFT_HOLD', 'MANUAL_REVIEW'].includes(claim.decision),
           })
         )
       );
+
+      return enrichedClaims
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => result.value);
     });
 
     res.set('X-Cache', cacheHit ? 'HIT' : 'MISS');
     res.json(detailedClaims);
   } catch (err) {
+    console.error('Admin dashboard query failed:', err.message);
     res.status(500).json({ error: "Enterprise Dashboard Rendering Query Failed" });
   }
 });
