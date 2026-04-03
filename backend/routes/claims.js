@@ -592,46 +592,54 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
     const { decision, dateFrom, dateTo, limit, skip } = req.query;
     const parsedSkip = parseInt(skip) || 0;
     const parsedLimit = Math.min(parseInt(limit) || 50, 100);
-    const cacheKey = buildCacheKey('claims:admin', {
-      decision: decision || null,
-      dateFrom: dateFrom || null,
-      dateTo: dateTo || null,
-      limit: parsedLimit,
-      skip: parsedSkip,
-    });
+    let query = {};
 
-    const { value: detailedClaims, cacheHit } = await getOrSetJson(cacheKey, 30, async () => {
-      let query = {};
+    if (decision) {
+      query.decision = decision;
+    }
 
-      if (decision) {
-        query.decision = decision;
-      }
+    if (dateFrom || dateTo) {
+      query.submittedAt = {};
+      if (dateFrom) query.submittedAt.$gte = new Date(dateFrom);
+      if (dateTo) query.submittedAt.$lte = new Date(dateTo);
+    }
 
-      if (dateFrom || dateTo) {
-        query.submittedAt = {};
-        if (dateFrom) query.submittedAt.$gte = new Date(dateFrom);
-        if (dateTo) query.submittedAt.$lte = new Date(dateTo);
-      }
+    const claims = await Claim.find(query)
+      .select([
+        'workerId',
+        'orderId',
+        'platform',
+        'claimTimestamp',
+        'gps',
+        'disruptionType',
+        'claimRef',
+        'submittedAt',
+        'compositeScore',
+        'decision',
+        'reviewStatus',
+        'payoutStatus',
+        'payout',
+        'manualReview',
+        'softHold',
+      ].join(' '))
+      .sort({ submittedAt: -1 })
+      .skip(parsedSkip)
+      .limit(parsedLimit)
+      .lean();
 
-      const claims = await Claim.find(query)
-        .sort({ submittedAt: -1 })
-        .skip(parsedSkip)
-        .limit(parsedLimit);
+    const enrichedClaims = await Promise.allSettled(
+      claims.map((claim) =>
+        attachAdminClaimDetails(claim, {
+          includeEvidence: ['SOFT_HOLD', 'MANUAL_REVIEW'].includes(claim.decision),
+        })
+      )
+    );
 
-      const enrichedClaims = await Promise.allSettled(
-        claims.map((claim) =>
-          attachAdminClaimDetails(claim, {
-            includeEvidence: ['SOFT_HOLD', 'MANUAL_REVIEW'].includes(claim.decision),
-          })
-        )
-      );
+    const detailedClaims = enrichedClaims
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => result.value);
 
-      return enrichedClaims
-        .filter((result) => result.status === 'fulfilled')
-        .map((result) => result.value);
-    });
-
-    res.set('X-Cache', cacheHit ? 'HIT' : 'MISS');
+    res.set('X-Cache', 'BYPASS');
     res.json(detailedClaims);
   } catch (err) {
     console.error('Admin dashboard query failed:', err.message);
