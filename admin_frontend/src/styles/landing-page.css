@@ -1,0 +1,464 @@
+/* ==========================================================
+   LandingPage.css
+   Dedicated styles for admin_frontend LandingPage component
+   Scope: Admin panel for GigShield food-delivery gig workers
+   ========================================================== */
+
+/* ── Hero Section ──────────────────────────────────────── */
+
+.lp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  gap: 24px;
+  padding: 48px 48px 40px;
+  border-radius: 32px;
+  background:
+    radial-gradient(ellipse at top left, rgba(14, 124, 134, 0.18) 0%, transparent 48%),
+    radial-gradient(ellipse at bottom right, rgba(255, 142, 60, 0.14) 0%, transparent 40%),
+    linear-gradient(145deg, #ffffff 0%, #f0f7f8 60%, #e8f4f5 100%);
+  border: 1px solid rgba(14, 124, 134, 0.14);
+  box-shadow:
+    0 2px 4px rgba(14, 124, 134, 0.04),
+    0 8px 24px rgba(14, 124, 134, 0.08),
+    0 32px 64px rgba(14, 124, 134, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+/* decorative ring top-right */
+.lp-hero::before {
+  content: '';
+  position: absolute;
+  top: -72px;
+  right: -72px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14, 124, 134, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* decorative ring bottom-left */
+.lp-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -48px;
+  left: -48px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 142, 60, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Hero Copy Column ──────────────────────────────────── */
+
+.lp-hero__copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  color: var(--brand-deep);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: rgba(14, 124, 134, 0.08);
+  border: 1px solid rgba(14, 124, 134, 0.16);
+  padding: 6px 12px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.lp-eyebrow__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: lp-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes lp-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+.lp-title {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.18;
+  color: var(--ink);
+  max-width: 680px;
+}
+
+.lp-title mark {
+  background: none;
+  color: var(--brand);
+  position: relative;
+}
+
+.lp-subtext {
+  margin: 18px 0 0;
+  max-width: 580px;
+  color: var(--muted);
+  line-height: 1.78;
+  font-size: 1rem;
+}
+
+/* ── Hero Actions ──────────────────────────────────────── */
+
+.lp-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+/* ── Pill / Tag Row ────────────────────────────────────── */
+
+.lp-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.lp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(14, 124, 134, 0.07);
+  border: 1px solid rgba(14, 124, 134, 0.14);
+  color: var(--brand-deep);
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.lp-tag:hover {
+  background: rgba(14, 124, 134, 0.12);
+  box-shadow: 0 4px 12px rgba(14, 124, 134, 0.12);
+}
+
+/* ── Stats Card Column ─────────────────────────────────── */
+
+.lp-hero__stats {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.lp-stat {
+  padding: 20px 22px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(14, 124, 134, 0.12);
+  box-shadow:
+    0 2px 8px rgba(14, 124, 134, 0.06),
+    0 12px 28px rgba(14, 124, 134, 0.04);
+  backdrop-filter: blur(10px);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-stat:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 12px rgba(14, 124, 134, 0.1),
+    0 20px 40px rgba(14, 124, 134, 0.08);
+}
+
+.lp-stat__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(14, 124, 134, 0.1);
+  color: var(--brand-deep);
+  margin-bottom: 4px;
+}
+
+.lp-stat__label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.lp-stat__value {
+  display: block;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  line-height: 1;
+}
+
+/* ── Feature Grid ──────────────────────────────────────── */
+
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.lp-panel {
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  box-shadow:
+    0 2px 8px rgba(23, 32, 51, 0.04),
+    0 12px 28px rgba(23, 32, 51, 0.04);
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.lp-panel:hover {
+  transform: translateY(-3px);
+  border-color: rgba(14, 124, 134, 0.18);
+  box-shadow:
+    0 4px 12px rgba(14, 124, 134, 0.06),
+    0 24px 48px rgba(14, 124, 134, 0.08);
+}
+
+.lp-panel__icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(14, 124, 134, 0.12), rgba(14, 124, 134, 0.04));
+  border: 1px solid rgba(14, 124, 134, 0.12);
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.lp-panel__title {
+  margin: 18px 0 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.lp-panel__copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.75;
+  font-size: 0.92rem;
+  flex: 1;
+}
+
+/* ── CTA Banner ────────────────────────────────────────── */
+
+.lp-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 36px 40px;
+  border-radius: 28px;
+  background:
+    radial-gradient(ellipse at left, rgba(14, 124, 134, 0.06) 0%, transparent 50%),
+    #ffffff;
+  border: 1px solid rgba(14, 124, 134, 0.12);
+  box-shadow:
+    0 2px 8px rgba(14, 124, 134, 0.04),
+    0 16px 40px rgba(14, 124, 134, 0.06);
+}
+
+.lp-cta__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(23, 128, 98, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(23, 128, 98, 0.16);
+  margin-bottom: 12px;
+}
+
+.lp-cta__title {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+}
+
+.lp-cta__copy {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.68;
+  font-size: 0.94rem;
+  max-width: 520px;
+}
+
+/* ── Divider ───────────────────────────────────────────── */
+
+.lp-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lp-divider::before,
+.lp-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(23, 32, 51, 0.1);
+}
+
+/* ── Section Header ────────────────────────────────────── */
+
+.lp-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.lp-section-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.lp-section-title {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+/* ── Responsive: Tablet (≤ 1120px) ────────────────────── */
+
+@media (max-width: 1120px) {
+  .lp-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-hero__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .lp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Responsive: Mobile (≤ 760px) ─────────────────────── */
+
+@media (max-width: 760px) {
+  .lp-hero {
+    padding: 28px 24px;
+    border-radius: 24px;
+    gap: 20px;
+  }
+
+  .lp-title {
+    font-size: clamp(1.7rem, 6vw, 2.4rem);
+  }
+
+  .lp-hero__stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .lp-stat {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+  }
+
+  .lp-stat__icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+  }
+
+  .lp-stat__value {
+    font-size: 1.6rem;
+  }
+
+  .lp-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .lp-panel {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .lp-panel__icon-wrap {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .lp-panel__title {
+    margin-top: 0;
+  }
+
+  .lp-cta {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 28px 24px;
+    border-radius: 24px;
+    gap: 20px;
+  }
+
+  .lp-hero__actions {
+    flex-direction: column;
+  }
+
+  .lp-hero__actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
