@@ -86,7 +86,8 @@ services:
       - key: PORT
         value: 8002
 
-  - type: static
+  - type: web
+    runtime: static
     name: gigshield-worker-app
     rootDir: frontend
     buildCommand: npm install && npm run build
@@ -99,7 +100,8 @@ services:
         source: /*
         destination: /index.html
 
-  - type: static
+  - type: web
+    runtime: static
     name: gigshield-admin-app
     rootDir: admin_frontend
     buildCommand: npm install && npm run build
