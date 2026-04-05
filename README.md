@@ -1,8 +1,8 @@
 # Insora 🛡️
 
 **Try it yourself:**
-- Worker app: [https://gigshield-worker-application.onrender.com](https://gigshield-worker-application.onrender.com)
-- Admin app: [https://gigshield-admin-application.onrender.com](https://gigshield-admin-application.onrender.com)
+- InSora app: [https://gigshield-worker-application.onrender.com](https://gigshield-worker-application.onrender.com)
+- InSora Admin app: [https://gigshield-admin-application.onrender.com](https://gigshield-admin-application.onrender.com)
 
 **AI-powered parametric income insurance for food delivery workers on Zomato and Swiggy**
 
