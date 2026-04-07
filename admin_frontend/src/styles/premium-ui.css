@@ -1,0 +1,332 @@
+/* ==========================================================
+   premium-ui.css
+   Shared premium light-mode styles across all admin components
+   ========================================================== */
+
+/* ── Typography & Basics ───────────────────────────────── */
+
+.p-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.p-title {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+/* Specific sizing classes for easy reuse */
+.p-title--hero { font-size: clamp(2rem, 3vw, 2.8rem); max-width: 680px; }
+.p-title--section { font-size: clamp(1.6rem, 2.5vw, 2.2rem); }
+.p-title--card { font-size: 1.25rem; font-weight: 700; margin: 12px 0 6px; }
+
+.p-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: var(--brand-deep);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: rgba(14, 124, 134, 0.08);
+  border: 1px solid rgba(14, 124, 134, 0.16);
+  padding: 6px 12px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.p-subtext {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 0.98rem;
+  max-width: 580px;
+}
+
+.p-helper-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* ── Cards & Containers ────────────────────────────────── */
+
+.p-card {
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  box-shadow:
+    0 2px 8px rgba(23, 32, 51, 0.03),
+    0 12px 28px rgba(23, 32, 51, 0.04);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.p-card--hero {
+  padding: 40px;
+  background:
+    radial-gradient(circle at top left, rgba(14, 124, 134, 0.12), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(255, 142, 60, 0.08), transparent 50%),
+    linear-gradient(135deg, #ffffff 0%, #f6fcfc 100%);
+  border-color: rgba(14, 124, 134, 0.14);
+}
+
+.p-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 124, 134, 0.15);
+  box-shadow:
+    0 4px 12px rgba(14, 124, 134, 0.05),
+    0 20px 48px rgba(14, 124, 134, 0.06);
+}
+
+.p-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ── Metrics & Stats ───────────────────────────────────── */
+
+.p-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.p-metric {
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(14, 124, 134, 0.12);
+  box-shadow: 0 4px 14px rgba(14, 124, 134, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.p-metric__label {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.p-metric__value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.p-metric__caption {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* ── Lists & Items ─────────────────────────────────────── */
+
+.p-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.p-list-item {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  box-shadow: 0 4px 18px rgba(23, 32, 51, 0.04);
+}
+
+.p-list-item__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.p-list-item__detail {
+  padding-top: 16px;
+  border-top: 1px dashed rgba(23, 32, 51, 0.1);
+  display: grid;
+  gap: 16px;
+}
+
+/* ── Pills & Tags ──────────────────────────────────────── */
+
+.p-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.p-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(23, 32, 51, 0.06);
+  border: 1px solid rgba(23, 32, 51, 0.05);
+  color: var(--ink);
+}
+
+/* Variation tags */
+.p-tag--brand {
+  background: rgba(14, 124, 134, 0.08);
+  border-color: rgba(14, 124, 134, 0.15);
+  color: var(--brand-deep);
+}
+
+.p-tag--success {
+  background: rgba(23, 128, 98, 0.1);
+  border-color: rgba(23, 128, 98, 0.15);
+  color: var(--success);
+}
+
+.p-tag--warning {
+  background: rgba(214, 122, 17, 0.12);
+  border-color: rgba(214, 122, 17, 0.15);
+  color: var(--warning);
+}
+
+.p-tag--danger {
+  background: rgba(196, 91, 78, 0.1);
+  border-color: rgba(196, 91, 78, 0.15);
+  color: var(--danger);
+}
+
+.p-tag--zomato { background: rgba(229, 75, 57, 0.12); color: #a13a2c; }
+.p-tag--swiggy { background: rgba(255, 142, 60, 0.14); color: #995317; }
+
+/* Interactive Toggle Chips */
+.p-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid rgba(23, 32, 51, 0.12);
+  background: #ffffff;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.p-toggle:hover {
+  background: rgba(23, 32, 51, 0.04);
+}
+
+.p-toggle--active {
+  background: rgba(14, 124, 134, 0.12);
+  border-color: rgba(14, 124, 134, 0.2);
+  color: var(--brand-deep);
+}
+
+/* ── Progress & Scores ─────────────────────────────────── */
+
+.p-scorebar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(23, 32, 51, 0.08);
+  overflow: hidden;
+}
+
+.p-scorebar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--brand));
+}
+
+/* ── Empty & Alerts ────────────────────────────────────── */
+
+.p-empty {
+  padding: 32px;
+  border-radius: 20px;
+  border: 1px dashed rgba(23, 32, 51, 0.15);
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.p-alert {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.p-alert--error {
+  background: rgba(196, 91, 78, 0.08);
+  border-color: rgba(196, 91, 78, 0.15);
+  color: #a43b2f;
+}
+
+/* ── Grids & Layout ────────────────────────────────────── */
+
+.p-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.p-grid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .p-section-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .p-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  .p-list-item__row {
+    grid-template-columns: 1fr;
+  }
+}
