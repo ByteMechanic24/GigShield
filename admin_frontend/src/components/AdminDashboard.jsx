@@ -26,8 +26,47 @@ export default function AdminDashboard() {
 
   const getEnvironmentSnapshot = (claim) =>
     claim?.evidence?.environmentSnapshot ||
+    claim?.checks?.find?.((check) => check.checkName === 'disruption_validation')?.data ||
     claim?.checks?.find?.((check) => check.checkName === 'environmental')?.data ||
     null;
+
+  const getCheck = (claim, checkName) =>
+    claim?.checks?.find?.((check) => check.checkName === checkName) || null;
+
+  const getAiCheck = (claim) => getCheck(claim, 'ai_final_verifier');
+  const getPhotoCheck = (claim) => getCheck(claim, 'photo_evidence');
+  const getLocationCheck = (claim) => getCheck(claim, 'location_confidence');
+  const getDisruptionCheck = (claim) =>
+    getCheck(claim, 'disruption_validation') || getCheck(claim, 'environmental');
+
+  const getManualReviewReason = (claim) => {
+    const aiCheck = getAiCheck(claim);
+    const photoCheck = getPhotoCheck(claim);
+    const locationCheck = getLocationCheck(claim);
+    const disruptionCheck = getDisruptionCheck(claim);
+
+    if (claim?.decisionReason) {
+      return claim.decisionReason;
+    }
+
+    if (aiCheck?.data?.reason) {
+      return aiCheck.data.reason;
+    }
+
+    if (photoCheck?.data?.reason && (photoCheck.score || 0) < 0.55) {
+      return `Photo evidence was not strong enough for auto-approval. ${photoCheck.data.reason}`;
+    }
+
+    if ((locationCheck?.score || 0) < 0.75) {
+      return 'Location confidence was not strong enough to auto-approve this claim safely.';
+    }
+
+    if ((disruptionCheck?.score || 0) < 0.55) {
+      return 'External disruption evidence was too weak or contradictory for automatic approval.';
+    }
+
+    return 'The verification engine did not reach a high enough confidence level, so this case requires a human decision.';
+  };
 
   const loadData = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
@@ -198,6 +237,14 @@ export default function AdminDashboard() {
                 const decision = formatDecision(claim.decision);
                 const photos = getReviewPhotos(claim);
                 const environmentSnapshot = getEnvironmentSnapshot(claim);
+                const aiCheck = getAiCheck(claim);
+                const photoCheck = getPhotoCheck(claim);
+                const locationCheck = getLocationCheck(claim);
+                const disruptionCheck = getDisruptionCheck(claim);
+                const reviewReason = getManualReviewReason(claim);
+                const aiRecommendation = aiCheck?.data?.recommendedOutcome || 'MANUAL_REVIEW';
+                const aiConcerns = Array.isArray(aiCheck?.data?.keyConcerns) ? aiCheck.data.keyConcerns : [];
+                const photoSignals = Array.isArray(photoCheck?.data?.detectedSignals) ? photoCheck.data.detectedSignals : [];
 
                 return (
                   <div key={claim._id} className="p-list-item">
@@ -239,6 +286,20 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="p-list-item__detail">
+                      <div className="p-review-banner">
+                        <div>
+                          <p className="p-metric__label">Why this case needs manual review</p>
+                          <p className="p-helper-copy" style={{ marginTop: 6 }}>
+                            {reviewReason}
+                          </p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <strong className="p-title" style={{ fontSize: '1.05rem' }}>
+                            {String(aiRecommendation).replaceAll('_', ' ')}
+                          </strong>
+                          <p className="p-helper-copy" style={{ marginTop: 6 }}>AI recommendation</p>
+                        </div>
+                      </div>
 
                       <div className="p-grid-2">
                         <div className="p-metric">
@@ -290,6 +351,77 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                       </div>
+
+                      <div className="p-grid-2">
+                        <div className="p-metric">
+                          <p className="p-metric__label">Final AI conclusion</p>
+                          <div className="p-metric__value" style={{ fontSize: '1.15rem', marginTop: 4 }}>
+                            {formatScore(aiCheck?.score)}
+                          </div>
+                          <p className="p-metric__caption">
+                            {aiCheck?.data?.reason || 'AI conclusion unavailable.'}
+                          </p>
+                          <div className="p-pill-row" style={{ marginTop: 10 }}>
+                            <span className="p-tag">{aiCheck?.confidence || 'NONE'} confidence</span>
+                            {aiCheck?.data?.usedModel ? <span className="p-tag">Model {aiCheck.data.usedModel}</span> : null}
+                          </div>
+                        </div>
+                        <div className="p-metric">
+                          <p className="p-metric__label">Photo analysis</p>
+                          <div className="p-metric__value" style={{ fontSize: '1.15rem', marginTop: 4 }}>
+                            {photoCheck?.data?.verdict ? String(photoCheck.data.verdict).replaceAll('_', ' ') : 'Not available'}
+                          </div>
+                          <p className="p-metric__caption">
+                            {photoCheck?.data?.reason || 'No photo-specific reasoning returned.'}
+                          </p>
+                          {photoSignals.length ? (
+                            <div className="p-pill-row" style={{ marginTop: 10 }}>
+                              {photoSignals.slice(0, 4).map((signal) => (
+                                <span key={`${claim._id}-${signal}`} className="p-tag p-tag--warning">
+                                  {signal}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="p-grid-2">
+                        <div className="p-metric">
+                          <p className="p-metric__label">Location validation</p>
+                          <div className="p-metric__value" style={{ fontSize: '1.15rem', marginTop: 4 }}>
+                            {formatScore(locationCheck?.score)}
+                          </div>
+                          <p className="p-metric__caption">
+                            Route distance {locationCheck?.data?.routeDistanceMetres ? `${Math.round(locationCheck.data.routeDistanceMetres)}m` : 'N/A'}
+                            {' '}Â· nearest order point {locationCheck?.data?.nearestOrderPointDistanceMetres ? `${Math.round(locationCheck.data.nearestOrderPointDistanceMetres)}m` : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="p-metric">
+                          <p className="p-metric__label">Disruption validation</p>
+                          <div className="p-metric__value" style={{ fontSize: '1.15rem', marginTop: 4 }}>
+                            {formatScore(disruptionCheck?.score)}
+                          </div>
+                          <p className="p-metric__caption">
+                            {disruptionCheck?.data?.autoEligible
+                              ? 'External evidence reached auto-eligible strength.'
+                              : 'External evidence did not reach auto-approval strength.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {aiConcerns.length ? (
+                        <div className="p-metric" style={{ background: '#fffaf2' }}>
+                          <p className="p-metric__label">AI concerns for reviewer</p>
+                          <div className="p-pill-row" style={{ marginTop: 10 }}>
+                            {aiConcerns.map((concern, index) => (
+                              <span key={`${claim._id}-concern-${index}`} className="p-tag p-tag--warning">
+                                {concern}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
 
                       {claim.checks?.length ? (
                         <div style={{ display: 'grid', gap: 12 }}>

@@ -180,6 +180,17 @@
   gap: 16px;
 }
 
+.p-review-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 248, 236, 0.92), rgba(244, 252, 250, 0.92));
+  border: 1px solid rgba(214, 122, 17, 0.15);
+}
+
 /* ── Pills & Tags ──────────────────────────────────────── */
 
 .p-pill-row {
@@ -327,6 +338,10 @@
   }
   
   .p-list-item__row {
+    grid-template-columns: 1fr;
+  }
+
+  .p-review-banner {
     grid-template-columns: 1fr;
   }
 }
