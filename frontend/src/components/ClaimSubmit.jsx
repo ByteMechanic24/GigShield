@@ -17,6 +17,29 @@ const DISRUPTION_OPTIONS = [
   { value: 'road_closure', label: 'Road closure', description: 'Barricade, closure, or police diversion blocked the route.' },
 ];
 
+const VERIFICATION_STEPS = [
+  {
+    title: 'Order context matched',
+    description: 'Validating the platform order, policy window, and duplicate-claim checks.',
+  },
+  {
+    title: 'Location evidence checked',
+    description: 'Comparing your live GPS with route context and mapped service area.',
+  },
+  {
+    title: 'Disruption signals reviewed',
+    description: 'Checking the claimed event against weather, AQI, or other disruption evidence.',
+  },
+  {
+    title: 'Photo and AI review',
+    description: 'Scoring the uploaded evidence and checking whether the full story is consistent.',
+  },
+  {
+    title: 'Decision prepared',
+    description: 'Finalizing the outcome and routing the claim to payout or manual review.',
+  },
+];
+
 export default function ClaimSubmit() {
   const { orderId: initialOrderId, platform: initialPlatform, isAutoFilled } = useDeepLink();
   const { gpsCoords, networkCoords, isLoading: locationLoading, error: locationError } = useLocation();
@@ -32,6 +55,7 @@ export default function ClaimSubmit() {
   const [latestDemoOrderId, setLatestDemoOrderId] = useState('');
   const [photos, setPhotos] = useState([]);
   const [compressingPhotos, setCompressingPhotos] = useState(false);
+  const [verificationStepIndex, setVerificationStepIndex] = useState(0);
 
   const showDemoToast = (message) => {
     setDemoToast(message);
@@ -60,6 +84,24 @@ export default function ClaimSubmit() {
       setPlatform(initialPlatform);
     }
   }, [initialOrderId, initialPlatform]);
+
+  useEffect(() => {
+    if (!submitting) {
+      return undefined;
+    }
+
+    setVerificationStepIndex(0);
+    const intervalId = window.setInterval(() => {
+      setVerificationStepIndex((current) => {
+        if (current >= VERIFICATION_STEPS.length - 2) {
+          return current;
+        }
+        return current + 1;
+      });
+    }, 950);
+
+    return () => window.clearInterval(intervalId);
+  }, [submitting]);
 
   const locationSummary = useMemo(() => {
     if (locationLoading) {
@@ -180,6 +222,48 @@ export default function ClaimSubmit() {
     setPhotos((current) => current.filter((_, index) => index !== indexToRemove));
   };
 
+  const getAutoDecisionGuidance = (claimResult) => {
+    const photoCheck = claimResult?.checkResults?.find?.((check) => check.checkName === 'photo_evidence');
+    const locationCheck = claimResult?.checkResults?.find?.((check) => check.checkName === 'location_confidence');
+    const disruptionCheck =
+      claimResult?.checkResults?.find?.((check) => check.checkName === 'disruption_validation') ||
+      claimResult?.checkResults?.find?.((check) => check.checkName === 'environmental');
+
+    if (claimResult?.decision === 'APPROVE') {
+      return 'Your claim had strong enough order, location, and disruption evidence to be approved automatically.';
+    }
+
+    if ((photoCheck?.score || 0) < 0.55 && photoCheck?.data?.reason) {
+      return `Photo evidence was not strong enough for automatic approval. ${photoCheck.data.reason}`;
+    }
+
+    if ((disruptionCheck?.score || 0) < 0.55) {
+      return 'The disruption evidence did not strongly match the claimed event, so the claim could not be auto-approved.';
+    }
+
+    if ((locationCheck?.score || 0) < 0.75) {
+      return 'Your live location evidence did not align strongly enough with the order route for automatic approval.';
+    }
+
+    return 'The verification engine found enough uncertainty that a human decision or a rejection was safer than an automatic approval.';
+  };
+
+  const getVerificationStopMessage = (claimResult) => {
+    if (claimResult?.decision === 'MANUAL_REVIEW' || claimResult?.decision === 'SOFT_HOLD') {
+      return 'Sent for manual review because the supporting evidence was not strong enough for automatic approval.';
+    }
+
+    if (claimResult?.decision === 'REJECT') {
+      return 'The engine found conflicting or insufficient evidence, so the claim was rejected instead of being sent straight to payout.';
+    }
+
+    if (claimResult?.decision === 'APPROVE') {
+      return 'All checkpoints aligned strongly enough for an automatic approval and payout release path.';
+    }
+
+    return 'The verification pipeline finished, but the claim needs a final decision check.';
+  };
+
   if (result) {
     const decision = formatDecision(result.decision);
 
@@ -214,6 +298,56 @@ export default function ClaimSubmit() {
                 {typeof result.compositeScore === 'number' ? result.compositeScore.toFixed(2) : 'N/A'}
               </div>
               <p className="app-metric__caption">Higher scores lead to faster auto decisions.</p>
+            </div>
+          </div>
+
+          {result.decisionReason ? (
+            <div
+              className="app-metric"
+              style={{
+                marginTop: 20,
+                background: result.decision === 'REJECT' ? '#fff4f2' : '#f8fffd',
+                borderColor: result.decision === 'REJECT' ? 'rgba(183, 70, 53, 0.22)' : 'rgba(14, 124, 134, 0.18)',
+              }}
+            >
+              <p className="app-metric__label">
+                {result.decision === 'REJECT'
+                  ? 'Why this claim was rejected'
+                  : result.decision === 'APPROVE'
+                    ? 'Why this claim was approved'
+                    : 'Why this claim needs review'}
+              </p>
+              <p className="card-copy" style={{ margin: 0 }}>
+                {result.decisionReason}
+              </p>
+            </div>
+          ) : null}
+
+          {result.decision !== 'APPROVE' ? (
+            <div className="app-metric" style={{ marginTop: 16 }}>
+              <p className="app-metric__label">Why it was not auto-approved</p>
+              <p className="card-copy" style={{ margin: 0 }}>
+                {getAutoDecisionGuidance(result)}
+              </p>
+            </div>
+          ) : null}
+
+          <div
+            className={`verification-stop-card verification-stop-card--${result.decision === 'APPROVE' ? 'approved' : result.decision === 'REJECT' ? 'rejected' : 'review'}`}
+            style={{ marginTop: 18 }}
+          >
+            <div className="verification-stop-card__icon">
+              <CheckCircle2 size={18} />
+            </div>
+            <div>
+              <p className="verification-stop-card__title">
+                {result.decision === 'APPROVE'
+                  ? 'Verification pipeline completed'
+                  : result.decision === 'REJECT'
+                    ? 'Verification stopped before payout'
+                    : 'Verification paused for manual review'}
+              </p>
+              <p className="verification-stop-card__copy">{getVerificationStopMessage(result)}</p>
             </div>
           </div>
 
@@ -395,6 +529,48 @@ export default function ClaimSubmit() {
             {compressingPhotos ? 'Preparing photos...' : submitting ? 'Submitting claim...' : 'Submit claim'}
           </button>
         </div>
+
+        {submitting ? (
+          <div className="verification-checklist">
+            <div className="verification-checklist__header">
+              <div>
+                <p className="eyebrow">Verification pipeline running</p>
+                <h3 className="verification-checklist__title">We are checking your claim step by step.</h3>
+              </div>
+              <div className="verification-checklist__pulse">
+                <Radar size={18} />
+                Live
+              </div>
+            </div>
+
+            <div className="verification-checklist__steps">
+              {VERIFICATION_STEPS.map((step, index) => {
+                const isComplete = index < verificationStepIndex;
+                const isActive = index === verificationStepIndex;
+
+                return (
+                  <div
+                    key={step.title}
+                    className={`verification-step${isComplete ? ' verification-step--complete' : ''}${isActive ? ' verification-step--active' : ''}`}
+                  >
+                    <div className="verification-step__icon">
+                      {isComplete ? <CheckCircle2 size={18} /> : <Radar size={18} />}
+                    </div>
+                    <div className="verification-step__content">
+                      <div className="verification-step__title-row">
+                        <p className="verification-step__title">{step.title}</p>
+                        <span className="verification-step__status">
+                          {isComplete ? 'Complete' : isActive ? 'Running' : 'Pending'}
+                        </span>
+                      </div>
+                      <p className="verification-step__description">{step.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <button

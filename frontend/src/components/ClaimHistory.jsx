@@ -129,6 +129,29 @@ export default function ClaimHistory() {
 
                 {isExpanded ? (
                   <div className="app-timeline-detail">
+                    {claim.decisionReason ? (
+                      <div
+                        className="app-metric"
+                        style={{
+                          marginBottom: 12,
+                          background: claim.decision === 'REJECT' ? '#fff4f2' : '#f8fffd',
+                          borderColor: claim.decision === 'REJECT' ? 'rgba(183, 70, 53, 0.22)' : 'rgba(14, 124, 134, 0.18)',
+                          boxShadow: 'none',
+                        }}
+                      >
+                        <p className="app-metric__label" style={{ marginBottom: 6 }}>
+                          {claim.decision === 'REJECT'
+                            ? 'Why this claim was rejected'
+                            : claim.decision === 'APPROVE'
+                              ? 'Why this claim was approved'
+                              : 'Why this claim needs review'}
+                        </p>
+                        <p className="helper-copy" style={{ margin: 0 }}>
+                          {claim.decisionReason}
+                        </p>
+                      </div>
+                    ) : null}
+
                     <div className="app-metric" style={{ background: '#fafafa', border: 'none', boxShadow: 'none' }}>
                       <p className="app-metric__label">Composite score</p>
                       <div className="app-metric__value">

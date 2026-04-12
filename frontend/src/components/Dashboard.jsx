@@ -228,6 +228,12 @@ export default function Dashboard() {
                       {claim.decision === 'APPROVE' ? 'Payout released' : 'Outcome pending'}
                     </span>
                   </div>
+
+                  {claim.decisionReason ? (
+                    <p className="helper-copy" style={{ marginTop: 10 }}>
+                      {claim.decisionReason}
+                    </p>
+                  ) : null}
                 </div>
               );
             })}
