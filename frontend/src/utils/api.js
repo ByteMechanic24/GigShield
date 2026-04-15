@@ -76,6 +76,42 @@ export const warmServices = () =>
             'Cache-Control': 'no-store',
         },
     }).catch(() => null);
+
+export const startServiceHeartbeat = (intervalMs = 8 * 60 * 1000) => {
+    if (typeof window === 'undefined') {
+        return () => {};
+    }
+
+    let disposed = false;
+
+    const tick = () => {
+        if (disposed) {
+            return;
+        }
+
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+            return;
+        }
+
+        warmServices();
+    };
+
+    tick();
+
+    const intervalId = window.setInterval(tick, intervalMs);
+    const handleFocus = () => tick();
+    const handleVisibilityChange = () => tick();
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+        disposed = true;
+        window.clearInterval(intervalId);
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+};
 export const submitClaim = (data) => handle(api.post('/claims', data));
 export const getClaims = (params = {}) => handle(api.get('/claims', { params }));
 export const getMockOrders = () => handle(api.get('/claims/mock-orders'));

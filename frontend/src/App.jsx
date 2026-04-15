@@ -8,7 +8,7 @@ import SignUp from './components/SignUp';
 import Dashboard from './components/Dashboard';
 import ClaimSubmit from './components/ClaimSubmit';
 import ClaimHistory from './components/ClaimHistory';
-import { clearWorkerAuth, restoreWorkerSession, signOutWorker, warmServices } from './utils/api';
+import { clearWorkerAuth, restoreWorkerSession, signOutWorker, startServiceHeartbeat, warmServices } from './utils/api';
 import { clearWorkerSnapshots, primeWorkerReads } from './utils/workerDataPrefetch';
 
 const WorkerContext = createContext(null);
@@ -60,12 +60,13 @@ function WorkerProvider({ children }) {
 
   useEffect(() => {
     warmServices();
+    const stopHeartbeat = startServiceHeartbeat();
     const sessionToken = localStorage.getItem('gigshield_session');
     if (!sessionToken) {
       setWorkerState(null);
       clearWorkerAuth();
       setAuthReady(true);
-      return;
+      return stopHeartbeat;
     }
 
     restoreWorkerSession()
@@ -89,6 +90,7 @@ function WorkerProvider({ children }) {
       .finally(() => {
         setAuthReady(true);
       });
+    return stopHeartbeat;
   }, []);
 
   const value = useMemo(

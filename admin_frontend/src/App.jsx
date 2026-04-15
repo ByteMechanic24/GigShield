@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LockKeyhole, LogOut, ShieldCheck } from 'lucide-react';
 import AdminDashboard from './components/AdminDashboard';
-import { loginAdmin, removeAdminKey } from './utils/api';
+import { loginAdmin, removeAdminKey, startServiceHeartbeat, warmServices } from './utils/api';
 import './index.css';
 import './styles/premium-ui.css';
 
@@ -35,6 +35,16 @@ export default function App() {
 
     verify();
   }, [adminKey]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
+    warmServices();
+    const stopHeartbeat = startServiceHeartbeat();
+    return stopHeartbeat;
+  }, [isAuthenticated]);
 
   const handleLogin = async (event) => {
     event.preventDefault();

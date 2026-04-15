@@ -25,6 +25,12 @@ router.get('/warmup', async (req, res) => {
   const dependencies = [
     ['ml', process.env.ML_SERVICE_URL],
     ['platform', process.env.PLATFORM_API_URL],
+    ['softHold', process.env.SOFT_HOLD_SERVICE_URL],
+    ...String(process.env.WARMUP_EXTRA_URLS || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((baseUrl, index) => [`extra${index + 1}`, baseUrl]),
   ];
 
   await Promise.all(

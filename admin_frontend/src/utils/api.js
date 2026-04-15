@@ -59,6 +59,49 @@ export const loginAdmin = (adminKey) =>
 export const fetchAdminStats = (params = {}) => handle(api.get('/claims/admin/all', { params }));
 export const reviewClaim = (id, data) => handle(api.put(`/claims/${id}/review`, data));
 export const testVerification = (data) => handle(api.post('/admin/test-verification', data));
+export const warmServices = () =>
+  api.get('/webhooks/warmup', {
+    timeout: 15000,
+    headers: {
+      'Cache-Control': 'no-store',
+    },
+  }).catch(() => null);
+
+export const startServiceHeartbeat = (intervalMs = 8 * 60 * 1000) => {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  let disposed = false;
+
+  const tick = () => {
+    if (disposed) {
+      return;
+    }
+
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return;
+    }
+
+    warmServices();
+  };
+
+  tick();
+
+  const intervalId = window.setInterval(tick, intervalMs);
+  const handleFocus = () => tick();
+  const handleVisibilityChange = () => tick();
+
+  window.addEventListener('focus', handleFocus);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  return () => {
+    disposed = true;
+    window.clearInterval(intervalId);
+    window.removeEventListener('focus', handleFocus);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+};
 
 export function removeAdminKey() {
   localStorage.removeItem(STORAGE_KEY);
