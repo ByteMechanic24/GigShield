@@ -10,12 +10,19 @@ function scoreOf(check, fallback = 0) {
   return clampScore(check?.score, fallback);
 }
 
-function computeDeterministicScore({ platformCheck, locationCheck, disruptionCheck, photoCheck, fraudCheck }) {
+function disruptionUsesPhotoEvidence(disruptionType) {
+  return ['flooding', 'road_closure', 'strike'].includes(disruptionType);
+}
+
+function computeDeterministicScore({ disruptionType, platformCheck, locationCheck, disruptionCheck, photoCheck, fraudCheck }) {
+  const photoContribution = disruptionUsesPhotoEvidence(disruptionType)
+    ? (scoreOf(photoCheck, 0.2) * 0.1)
+    : 0;
   const baseScore =
     (scoreOf(platformCheck) * 0.3) +
     (scoreOf(locationCheck) * 0.3) +
     (scoreOf(disruptionCheck) * 0.25) +
-    (scoreOf(photoCheck, 0.2) * 0.1);
+    photoContribution;
 
   const fraudAdjustment = (scoreOf(fraudCheck, 0.5) - 0.5) * 0.1;
   return clampScore(baseScore + fraudAdjustment);
@@ -31,6 +38,7 @@ function decideOutcome({
   aiCheck,
 }) {
   const deterministicScore = computeDeterministicScore({
+    disruptionType,
     platformCheck,
     locationCheck,
     disruptionCheck,

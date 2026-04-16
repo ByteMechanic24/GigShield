@@ -228,12 +228,13 @@ export default function ClaimSubmit() {
     const disruptionCheck =
       claimResult?.checkResults?.find?.((check) => check.checkName === 'disruption_validation') ||
       claimResult?.checkResults?.find?.((check) => check.checkName === 'environmental');
+    const usesPhotoEvidence = ['flooding', 'road_closure', 'strike'].includes(claimResult?.disruptionType);
 
     if (claimResult?.decision === 'APPROVE') {
       return 'Your claim had strong enough order, location, and disruption evidence to be approved automatically.';
     }
 
-    if ((photoCheck?.score || 0) < 0.55 && photoCheck?.data?.reason) {
+    if (usesPhotoEvidence && (photoCheck?.score || 0) < 0.55 && photoCheck?.data?.reason) {
       return `Photo evidence was not strong enough for automatic approval. ${photoCheck.data.reason}`;
     }
 
