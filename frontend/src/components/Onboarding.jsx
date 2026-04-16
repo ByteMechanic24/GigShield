@@ -9,6 +9,7 @@ import '../styles/app.css';
 const CITIES = {
   Mumbai: ['Andheri', 'Bandra', 'Powai', 'South Mumbai', 'Borivali'],
   Delhi: ['Connaught Place', 'South Extension', 'Dwarka', 'Rohini', 'Vasant Kunj'],
+  'Greater Noida': ['Knowledge Park', 'Pari Chowk', 'Alpha 1', 'Beta 1', 'Gamma 1'],
   Bangalore: ['Indiranagar', 'Koramangala', 'Whitefield', 'Jayanagar', 'HSR Layout'],
   Chennai: ['T Nagar', 'Adyar', 'Anna Nagar', 'Velachery', 'OMR'],
   Hyderabad: ['Banjara Hills', 'Jubilee Hills', 'HITEC City', 'Gachibowli', 'Madhapur'],
@@ -19,6 +20,7 @@ const CITIES = {
 const PREMIUM_ESTIMATES = {
   Mumbai: { basic: 34, standard: 51, premium: 84 },
   Delhi: { basic: 32, standard: 48, premium: 79 },
+  'Greater Noida': { basic: 29, standard: 45, premium: 73 },
   Bangalore: { basic: 31, standard: 47, premium: 78 },
   default: { basic: 28, standard: 44, premium: 72 },
 };
@@ -37,8 +39,8 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [upiHandle, setUpiHandle] = useState('');
-  const [city, setCity] = useState('Mumbai');
-  const [operatingZones, setOperatingZones] = useState(['Andheri']);
+  const [city, setCity] = useState('Greater Noida');
+  const [operatingZones, setOperatingZones] = useState(['Knowledge Park']);
   const [tier, setTier] = useState('standard');
   const [estimatedPremium, setEstimatedPremium] = useState(51);
 

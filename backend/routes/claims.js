@@ -200,26 +200,49 @@ function normalizeGpsPayload(gps = {}) {
   return normalized;
 }
 
-async function fetchMockOrders() {
+async function fetchMockOrders(workerId) {
   const platformApiUrl = process.env.PLATFORM_API_URL || 'http://mock_apis:8002';
+  const worker = await Worker.findById(workerId).lean();
   const response = await require('axios').get(`${platformApiUrl}/orders/list`, {
     timeout: 3000,
+    params: {
+      city: worker?.city || undefined,
+      zones: Array.isArray(worker?.operatingZones) ? worker.operatingZones.join(',') : undefined,
+    },
   });
 
   const zomatoOrders = Array.isArray(response.data?.zomato) ? response.data.zomato : [];
   const swiggyOrders = Array.isArray(response.data?.swiggy) ? response.data.swiggy : [];
 
   return [
-    ...zomatoOrders.map((orderId) => ({ orderId, platform: 'zomato' })),
-    ...swiggyOrders.map((orderId) => ({ orderId, platform: 'swiggy' })),
+    ...zomatoOrders.map((entry) => ({
+      orderId: typeof entry === 'string' ? entry : entry.orderId,
+      platform: 'zomato',
+      city: typeof entry === 'string' ? null : entry.city || null,
+      zone: typeof entry === 'string' ? null : entry.zone || null,
+    })),
+    ...swiggyOrders.map((entry) => ({
+      orderId: typeof entry === 'string' ? entry : entry.orderId,
+      platform: 'swiggy',
+      city: typeof entry === 'string' ? null : entry.city || null,
+      zone: typeof entry === 'string' ? null : entry.zone || null,
+    })),
   ];
 }
 
-async function generateDemoOrder(platform, anchor) {
+async function generateDemoOrder(platform, anchor, workerId) {
   const platformApiUrl = process.env.PLATFORM_API_URL || 'http://mock_apis:8002';
+  const worker = await Worker.findById(workerId).lean();
   const response = await require('axios').post(
     `${platformApiUrl}/orders/demo-generate`,
-    { platform, anchor },
+    {
+      platform,
+      anchor: {
+        ...(anchor || {}),
+        city: anchor?.city || worker?.city || null,
+        operatingZones: anchor?.operatingZones || worker?.operatingZones || [],
+      },
+    },
     { timeout: 3000 }
   );
 
@@ -389,7 +412,7 @@ async function sendWhatsapp(workerId, messageType, context = {}) {
  */
 router.get('/mock-orders', requireWorker, async (req, res) => {
   try {
-    const orders = await fetchMockOrders();
+    const orders = await fetchMockOrders(req.workerId);
     return res.json(orders);
   } catch (error) {
     return res.status(500).json({ error: 'Unable to load mock order list right now.' });
@@ -399,7 +422,7 @@ router.get('/mock-orders', requireWorker, async (req, res) => {
 router.post('/mock-orders/demo-generate', requireWorker, async (req, res) => {
   try {
     const platform = req.body?.platform === 'swiggy' ? 'swiggy' : 'zomato';
-    const order = await generateDemoOrder(platform, req.body?.anchor || {});
+    const order = await generateDemoOrder(platform, req.body?.anchor || {}, req.workerId);
     return res.json(order);
   } catch (error) {
     return res.status(500).json({ error: 'Unable to generate a demo order right now.' });

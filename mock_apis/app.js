@@ -3,6 +3,11 @@ const cors = require('cors');
 
 const zomatoOrders = require('./zomato_mock');
 const swiggyOrders = require('./swiggy_mock');
+const {
+  buildOrderGeometry,
+  orderMatchesContext,
+  resolveCityProfile,
+} = require('./orderFactory');
 
 const app = express();
 const PORT = 8002;
@@ -25,60 +30,18 @@ function hydrateOrder(order) {
   };
 }
 
-function clampCoordinate(value, fallback) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function encodeCoordinate(value) {
-  let coordinate = value < 0 ? ~(value << 1) : (value << 1);
-  let output = '';
-
-  while (coordinate >= 0x20) {
-    output += String.fromCharCode((0x20 | (coordinate & 0x1f)) + 63);
-    coordinate >>= 5;
-  }
-
-  output += String.fromCharCode(coordinate + 63);
-  return output;
-}
-
-function encodePolyline(points) {
-  let previousLat = 0;
-  let previousLng = 0;
-
-  return points.map((point) => {
-    const lat = Math.round(point.lat * 1e5);
-    const lng = Math.round(point.lng * 1e5);
-    const encodedLat = encodeCoordinate(lat - previousLat);
-    const encodedLng = encodeCoordinate(lng - previousLng);
-    previousLat = lat;
-    previousLng = lng;
-    return `${encodedLat}${encodedLng}`;
-  }).join('');
-}
-
 function buildDemoOrder(platform, anchor = {}) {
   const normalizedPlatform = platform === 'swiggy' ? 'swiggy' : 'zomato';
   const prefix = normalizedPlatform === 'swiggy' ? 'SWG' : 'ZOM';
   const now = new Date();
   const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
   const randomPart = `${Date.now().toString().slice(-5)}${Math.floor(Math.random() * 900 + 100)}`;
-  const baseLat = clampCoordinate(anchor.lat, 19.1136);
-  const baseLng = clampCoordinate(anchor.lng, 72.8697);
-  const pickupCoords = {
-    lat: baseLat + (Math.random() - 0.5) * 0.004,
-    lng: baseLng + (Math.random() - 0.5) * 0.004,
-  };
-  const dropCoords = {
-    lat: baseLat + (Math.random() > 0.5 ? 0.002 : -0.002) + Math.random() * 0.0015,
-    lng: baseLng + (Math.random() > 0.5 ? 0.002 : -0.002) + Math.random() * 0.0015,
-  };
-  const midPoint = {
-    lat: (pickupCoords.lat + dropCoords.lat) / 2 + (Math.random() - 0.5) * 0.001,
-    lng: (pickupCoords.lng + dropCoords.lng) / 2 + (Math.random() - 0.5) * 0.001,
-  };
-  const routePolyline = encodePolyline([pickupCoords, midPoint, dropCoords]);
+  const profile = resolveCityProfile({
+    city: anchor.city,
+    preferredZones: anchor.operatingZones || [],
+    anchor,
+  });
+  const geometry = buildOrderGeometry(profile.baseLat, profile.baseLng);
 
   return {
     orderId: `${prefix}-${datePart}-${randomPart}`,
@@ -86,15 +49,14 @@ function buildDemoOrder(platform, anchor = {}) {
     assignedWorkerId: null,
     workerPayout: 70 + Math.floor(Math.random() * 50),
     acceptanceTimestamp: new Date(Date.now() - Math.floor(Math.random() * 20 * 60 * 1000)).toISOString(),
-    routePolyline,
-    lastKnownLocation: {
-      lat: baseLat + (Math.random() - 0.5) * 0.008,
-      lng: baseLng + (Math.random() - 0.5) * 0.008,
-    },
-    pickupCoords,
-    dropCoords,
+    routePolyline: geometry.routePolyline,
+    lastKnownLocation: geometry.lastKnownLocation,
+    pickupCoords: geometry.pickupCoords,
+    dropCoords: geometry.dropCoords,
     platform: normalizedPlatform,
     isDemoGenerated: true,
+    city: profile.city,
+    zone: profile.zone,
   };
 }
 
@@ -166,10 +128,24 @@ app.post('/zomato/worker/:workerId/location', (req, res) => {
 
 // Generic List Route for easy UI / dev testing
 app.get('/orders/list', (req, res) => {
-  const extractIds = order => order.orderId;
+  const city = req.query?.city;
+  const preferredZones = String(req.query?.zones || '')
+    .split(',')
+    .map((zone) => zone.trim())
+    .filter(Boolean);
+  const matchingZomato = zomatoOrders.filter((order) => order.status === 'IN_TRANSIT' && orderMatchesContext(order, { city, preferredZones }));
+  const matchingSwiggy = swiggyOrders.filter((order) => order.status === 'IN_TRANSIT' && orderMatchesContext(order, { city, preferredZones }));
+  const fallbackZomato = zomatoOrders.filter((order) => order.status === 'IN_TRANSIT');
+  const fallbackSwiggy = swiggyOrders.filter((order) => order.status === 'IN_TRANSIT');
+  const extractIds = (order) => ({
+    orderId: order.orderId,
+    city: order.city,
+    zone: order.zone,
+  });
+
   res.json({
-    zomato: zomatoOrders.filter(order => order.status === 'IN_TRANSIT').map(extractIds),
-    swiggy: swiggyOrders.filter(order => order.status === 'IN_TRANSIT').map(extractIds)
+    zomato: (matchingZomato.length ? matchingZomato : fallbackZomato).map(extractIds),
+    swiggy: (matchingSwiggy.length ? matchingSwiggy : fallbackSwiggy).map(extractIds),
   });
 });
 
@@ -183,6 +159,8 @@ app.post('/orders/demo-generate', (req, res) => {
     orderId: order.orderId,
     platform: order.platform,
     acceptedAt: order.acceptanceTimestamp,
+    city: order.city,
+    zone: order.zone,
   });
 });
 
