@@ -5,6 +5,8 @@ const bcrypt = require('bcryptjs');
 const Worker = require('../models/Worker');
 const Policy = require('../models/Policy');
 const Organization = require('../models/Organization');
+const AuthIdentity = require('../models/AuthIdentity');
+const AuthSession = require('../models/AuthSession');
 const AuditLog = require('../models/AuditLog');
 const {
   createWorkerSession,
@@ -90,6 +92,14 @@ async function getDefaultOrganization() {
   );
 }
 
+async function cleanupFailedWorkerSignup(workerId) {
+  await Promise.allSettled([
+    AuthIdentity.deleteMany({ subjectType: 'worker', subjectId: workerId }),
+    AuthSession.deleteMany({ subjectType: 'worker', subjectId: workerId }),
+    Worker.deleteOne({ _id: workerId }),
+  ]);
+}
+
 /**
  * Helper to compute the current week constraints (Monday-Sunday) securely
  */
@@ -113,6 +123,48 @@ router.post('/sign-up', async (req, res) => {
 
     if (!email || !normalizedPhone || password.length < 8) {
       return res.status(400).json({ error: 'Email, phone number, and a password of at least 8 characters are required.' });
+    }
+
+    const existingWorker = await Worker.findOne({
+      $or: [{ email }, { phone: normalizedPhone }],
+    }).exec();
+
+    if (existingWorker) {
+      const existingIdentity = await AuthIdentity.findOne({
+        subjectType: 'worker',
+        subjectId: existingWorker._id,
+        authType: 'email_password',
+        status: 'active',
+      }).exec();
+
+      const passwordMatchesExisting =
+        existingWorker.passwordHash
+          ? await bcrypt.compare(password, existingWorker.passwordHash).catch(() => false)
+          : false;
+
+      if (!existingIdentity && passwordMatchesExisting) {
+        await upsertWorkerIdentity(existingWorker, { authType: 'email_password', email });
+        const recoveredSession = await createWorkerSession(existingWorker, req);
+
+        await AuditLog.create({
+          actorType: 'worker',
+          actorId: existingWorker._id,
+          entityType: 'worker_account',
+          entityId: existingWorker._id,
+          action: 'worker_signup_recovered',
+          metadata: { sessionId: recoveredSession.sessionId },
+          ipAddress: req.ip,
+        });
+
+        return res.json({
+          worker: existingWorker,
+          policy: null,
+          session: recoveredSession,
+          message: 'We restored your existing account and signed you in.',
+        });
+      }
+
+      return res.status(409).json({ error: 'An account with this email or phone number already exists.' });
     }
 
     const organization = await getDefaultOrganization();
@@ -139,8 +191,20 @@ router.post('/sign-up', async (req, res) => {
       throw err;
     }
 
-    await upsertWorkerIdentity(worker, { authType: 'email_password', email });
-    const session = await createWorkerSession(worker, req);
+    let session;
+
+    try {
+      await upsertWorkerIdentity(worker, { authType: 'email_password', email });
+      session = await createWorkerSession(worker, req);
+    } catch (postCreateError) {
+      console.error('Worker sign-up auth/session setup failed', {
+        workerId: worker._id?.toString(),
+        email,
+        message: postCreateError.message,
+      });
+      await cleanupFailedWorkerSignup(worker._id);
+      return res.status(500).json({ error: 'We hit a temporary account setup issue. Please try signing up again.' });
+    }
 
     await AuditLog.create({
       actorType: 'worker',
@@ -160,6 +224,11 @@ router.post('/sign-up', async (req, res) => {
       message: 'Welcome to GigShield. Let’s finish your onboarding.',
     });
   } catch (error) {
+    console.error('Worker sign-up failed', {
+      email: String(req.body.email || '').trim().toLowerCase(),
+      phone: normalizePhone(req.body.phone),
+      message: error.message,
+    });
     return res.status(500).json({ error: 'Unable to create your account right now.' });
   }
 });
